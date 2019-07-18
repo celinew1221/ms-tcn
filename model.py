@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch import optim
 import copy
 import numpy as np
+from torchsummary import summary
 
 
 class MultiStageModel(nn.Module):
@@ -72,7 +73,7 @@ class Trainer:
                 batch_input, batch_target, mask = batch_input.to(device), batch_target.to(device), mask.to(device)
                 optimizer.zero_grad()
                 predictions = self.model(batch_input, mask)
-
+                # print batch_input.shape, batch_target.shape, mask.shape, predictions.shape, self.num_classes
                 loss = 0
                 for p in predictions:
                     loss += self.ce(p.transpose(2, 1).contiguous().view(-1, self.num_classes), batch_target.view(-1))
@@ -93,6 +94,7 @@ class Trainer:
                                                                float(correct)/total))
 
     def predict(self, model_dir, results_dir, features_path, vid_list_file, epoch, actions_dict, device, sample_rate):
+        new_action_dict = {v: k for k, v in actions_dict.items()}
         self.model.eval()
         with torch.no_grad():
             self.model.to(device)
@@ -101,7 +103,7 @@ class Trainer:
             list_of_vids = file_ptr.read().split('\n')[:-1]
             file_ptr.close()
             for vid in list_of_vids:
-                print vid
+                print(vid)
                 features = np.load(features_path + vid.split('.')[0] + '.npy')
                 features = features[:, ::sample_rate]
                 input_x = torch.tensor(features, dtype=torch.float)
@@ -112,7 +114,7 @@ class Trainer:
                 predicted = predicted.squeeze()
                 recognition = []
                 for i in range(len(predicted)):
-                    recognition = np.concatenate((recognition, [actions_dict.keys()[actions_dict.values().index(predicted[i].item())]]*sample_rate))
+                    recognition = np.concatenate((recognition, [new_action_dict[predicted[i].item()]]*sample_rate))
                 f_name = vid.split('/')[-1].split('.')[0]
                 f_ptr = open(results_dir + "/" + f_name, "w")
                 f_ptr.write("### Frame level recognition: ###\n")
